@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Management Form</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .form-container {
+            max-width: 500px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h3 class="text-center">Project Management Form</h3>
+        <form id="projectForm">
+            <div class="form-group">
+                <label for="project-id">Project ID (Primary Key)</label>
+                <input type="text" id="project-id" class="form-control" placeholder="Enter Project ID" oninput="checkPrimaryKey()">
+            </div>
+            <div class="form-group">
+                <label for="project-name">Project Name</label>
+                <input type="text" id="project-name" class="form-control" placeholder="Enter Project Name" disabled>
+            </div>
+            <div class="form-group">
+                <label for="assigned-to">Assigned To</label>
+                <input type="text" id="assigned-to" class="form-control" placeholder="Enter Assignee Name" disabled>
+            </div>
+            <div class="form-group">
+                <label for="assignment-date">Assignment Date</label>
+                <input type="date" id="assignment-date" class="form-control" disabled>
+            </div>
+            <div class="form-group">
+                <label for="deadline">Deadline</label>
+                <input type="date" id="deadline" class="form-control" disabled>
+            </div>
+            <div class="text-center">
+                <button type="button" id="save-btn" class="btn btn-primary" onclick="saveData()" disabled>Save</button>
+                <button type="button" id="update-btn" class="btn btn-warning" onclick="updateData()" disabled>Update</button>
+                <button type="button" id="reset-btn" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const apiUrl = "http://api.login2explore.com:5577"; // Base URL for API
+        const token = "90934384|-31949227037995785|90957207"; // Authentication token
+    
+        // Initialize the form
+        function initializeForm() {
+            document.getElementById('projectForm').reset();
+            toggleFormFields(false);
+            document.getElementById('project-id').disabled = false;
+            document.getElementById('save-btn').disabled = true;
+            document.getElementById('update-btn').disabled = true;
+            document.getElementById('project-id').focus();
+        }
+    
+        // Enable or disable form fields
+        function toggleFormFields(enable) {
+            document.getElementById('project-name').disabled = !enable;
+            document.getElementById('assigned-to').disabled = !enable;
+            document.getElementById('assignment-date').disabled = !enable;
+            document.getElementById('deadline').disabled = !enable;
+        }
+    
+        // Reset the form
+        function resetForm() {
+            initializeForm();
+        }
+    
+        // Check if the primary key exists in the database
+        async function checkPrimaryKey() {
+            const projectId = document.getElementById('project-id').value.trim();
+            if (!projectId) {
+                resetForm();
+                return;
+            }
+    
+            try {
+                const response = await fetch(`${apiUrl}/api/irl`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "token": token,
+                        "cmd": "GET_BY_KEY",
+                        "dbName": "COLLEGE-DB",
+                        "rel": "PROJECT-TABLE",
+                        "jsonStr": {
+                            "Project-ID": projectId
+                        }
+                        
+                    }),
+                    mode: 'no-cors',
+                });
+    
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("API Response:", data);
+    
+                    if (data.data) {
+                        populateForm(data.data.record);
+                        document.getElementById('save-btn').disabled = true;
+                        document.getElementById('update-btn').disabled = false;
+                    } else {
+                        toggleFormFields(true);
+                        document.getElementById('save-btn').disabled = false;
+                        document.getElementById('update-btn').disabled = true;
+                    }
+                } else {
+                    alert("Failed to fetch project data");
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+        function populateForm(project) {
+            document.getElementById('project-id').value = project["Project-ID"];
+            document.getElementById('project-name').value = project["Project-Name"];
+            document.getElementById('assigned-to').value = project["Assigned-To"];
+            document.getElementById('assignment-date').value = project["Assignment-Date"];
+            document.getElementById('deadline').value = project["Deadline"];
+    
+            toggleFormFields(true);
+            document.getElementById('project-id').disabled = true;
+        }
+
+        function validateForm() {
+            const fields = ['project-id', 'project-name', 'assigned-to', 'assignment-date', 'deadline'];
+            for (let field of fields) {
+                if (!document.getElementById(field).value.trim()) {
+                    alert('All fields are required.');
+                    return false;
+                }
+            }
+            return true;
+        }
+        async function saveData() {
+            if (!validateForm()) return;
+    
+            const project = {
+                "Project-ID": document.getElementById('project-id').value,
+                "Project-Name": document.getElementById('project-name').value,
+                "Assigned-To": document.getElementById('assigned-to').value,
+                "Assignment-Date": document.getElementById('assignment-date').value,
+                "Deadline": document.getElementById('deadline').value
+            };
+    
+            const payload = {
+                "token": token,
+                "cmd": "PUT",
+                "dbName": "College-DB",
+                "rel": "PROJECT-TABLE",
+                "jsonStr": project
+            };
+    
+            try {
+                const response = await fetch(`${apiUrl}/api/iml`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+    
+                const data = await response.json();
+                if (data.status === 200) {
+                    alert('Project saved successfully.');
+                    resetForm();
+                } else {
+                    alert('Failed to save project.');
+                }
+            } catch (error) {
+                console.error('Error saving data:', error);
+            }
+        }
+
+        async function updateData() {
+            if (!validateForm()) return;
+    
+            const projectId = document.getElementById('project-id').value;
+            const project = {
+                "Project-Name": document.getElementById('project-name').value,
+                "Assigned-To": document.getElementById('assigned-to').value,
+                "Assignment-Date": document.getElementById('assignment-date').value,
+                "Deadline": document.getElementById('deadline').value
+            };
+    
+            const payload = {
+                "token": token,
+                "cmd": "UPDATE",
+                "dbName": "College-DB",
+                "rel": "PROJECT-TABLE",
+                "jsonStr": { [projectId]: project }
+            };
+    
+            try {
+                const response = await fetch(`${apiUrl}/api/iml`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+    
+                const data = await response.json();
+                if (data.status === 200) {
+                    alert('Project updated successfully.');
+                    resetForm();
+                } else {
+                    alert('Failed to update project.');
+                }
+            } catch (error) {
+                console.error('Error updating data:', error);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', initializeForm);
+    </script>
+</body>
+</html>
